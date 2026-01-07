@@ -1,3 +1,5 @@
 Pillow
 tqdm
 requests
+opencv-python
+numpy
