@@ -37,11 +37,15 @@ def print_performance_comparison(all_times, sequential_time):
         if 'multiprocessing' in key:
             workers = int(key.split('_')[-2])
             speedup, efficiency = calculate_metrics(sequential_time, time_val, workers)
-            print(f"{'multiprocessing.Pool':<45} {workers:<10} {time_val:<12.4f} {speedup:<10.2f}x {efficiency:<12.2f}%")
+            speedup_str = f"{speedup:.2f}x"
+            efficiency_str = f"{efficiency:.2f}%"
+            print(f"{'multiprocessing.Pool':<45} {workers:<10} {time_val:<12.4f} {speedup_str:<10} {efficiency_str:<12}")
         elif 'threadpool' in key:
             workers = int(key.split('_')[-2])
             speedup, efficiency = calculate_metrics(sequential_time, time_val, workers)
-            print(f"{'concurrent.futures.ThreadPoolExecutor':<45} {workers:<10} {time_val:<12.4f} {speedup:<10.2f}x {efficiency:<12.2f}%")
+            speedup_str = f"{speedup:.2f}x"
+            efficiency_str = f"{efficiency:.2f}%"
+            print(f"{'concurrent.futures.ThreadPoolExecutor':<45} {workers:<10} {time_val:<12.4f} {speedup_str:<10} {efficiency_str:<12}")
     
     print("="*80)
 
