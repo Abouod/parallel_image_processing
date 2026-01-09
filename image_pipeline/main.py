@@ -169,20 +169,19 @@ def run_multiprocessing_pool(images_data, num_workers, verbose=True):
         print(f"\n{'Image':<15} {'PID':<10} {'Core ID':<10} {'Time (s)':<12}")
         print("-"*50)
         
-        unique_pids = set()
-        unique_cores = set()
+        # Count PIDs from ALL results (not just displayed ones)
+        unique_pids = set(res['pid'] for res in results)
+        unique_cores = set(res['core_id'] for res in results if res['core_id'] != "N/A")
         
         for res in results[:10]:  # Show first 10 for brevity
             print(f"{res['filename']:<15} {res['pid']:<10} {res['core_id']:<10} {res['duration']:.4f}")
-            unique_pids.add(res['pid'])
-            if res['core_id'] != "N/A":
-                unique_cores.add(res['core_id'])
         
         if len(results) > 10:
             print(f"... and {len(results) - 10} more images")
         
         print("-"*50)
         print(f"Unique PIDs observed: {len(unique_pids)} → Confirms SEPARATE PROCESSES")
+        print(f"All PIDs: {sorted(unique_pids)}")
         if unique_cores:
             print(f"CPU Cores utilized: {unique_cores} → True parallel execution")
         print(f"\nTotal time: {total_time:.4f} seconds")
@@ -223,17 +222,14 @@ def run_threadpool_executor(images_data, num_workers, verbose=True):
         print(f"\n{'Image':<15} {'PID':<10} {'TID':<20} {'Core ID':<10} {'Time (s)':<12}")
         print("-"*70)
         
-        unique_pids = set()
-        unique_tids = set()
-        unique_cores = set()
+        # Count PIDs/TIDs from ALL results (not just displayed ones)
+        unique_pids = set(res['pid'] for res in results)
+        unique_tids = set(res['tid'] for res in results)
+        unique_cores = set(res['core_id'] for res in results if res['core_id'] != "N/A")
         
         for res in results[:10]:  # Show first 10 for brevity
             tid_short = str(res['tid'])[-8:]  # Last 8 digits for readability
             print(f"{res['filename']:<15} {res['pid']:<10} ...{tid_short:<16} {res['core_id']:<10} {res['duration']:.4f}")
-            unique_pids.add(res['pid'])
-            unique_tids.add(res['tid'])
-            if res['core_id'] != "N/A":
-                unique_cores.add(res['core_id'])
         
         if len(results) > 10:
             print(f"... and {len(results) - 10} more images")
