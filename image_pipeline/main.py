@@ -312,7 +312,7 @@ def print_performance_comparison(all_times, sequential_time):
 
 
 def print_analysis_summary(all_times, sequential_time):
-    """Print detailed analysis and observations."""
+    """Print detailed analysis and observations including Amdahl's Law."""
     print("\n" + "="*80)
     print("ANALYSIS AND OBSERVATIONS")
     print("="*80)
@@ -346,17 +346,116 @@ def print_analysis_summary(all_times, sequential_time):
     print("   - ThreadPoolExecutor is LIMITED by GIL for CPU-bound tasks")
     print("   - For I/O-bound tasks (file reading, network), ThreadPoolExecutor would excel")
     
+    # ==================== AMDAHL'S LAW ANALYSIS ====================
+    print("\n" + "-"*80)
+    print("4. AMDAHL'S LAW ANALYSIS")
+    print("-"*80)
+    print("   Amdahl's Law: Speedup = 1 / ((1 - P) + P/N)")
+    print("   Where: P = parallelizable fraction, N = number of processors")
+    print("")
+    
+    # Estimate parallel fraction from observed speedup
+    # From Amdahl's Law: S = 1 / ((1-P) + P/N)
+    # Solving for P: P = (N * (S - 1)) / (S * (N - 1))
+    if mp_times:
+        best_mp = min(mp_times.items(), key=lambda x: x[1])
+        workers = int(best_mp[0].split('_')[-2])
+        observed_speedup, _ = calculate_metrics(sequential_time, best_mp[1], workers)
+        
+        if workers > 1 and observed_speedup > 1:
+            # Calculate parallel fraction P
+            P = (workers * (observed_speedup - 1)) / (observed_speedup * (workers - 1))
+            P = min(max(P, 0), 1)  # Clamp between 0 and 1
+            serial_fraction = 1 - P
+            
+            print(f"   Based on multiprocessing.Pool ({workers} workers, {observed_speedup:.2f}x speedup):")
+            print(f"   • Estimated Parallel Fraction (P): {P*100:.1f}%")
+            print(f"   • Estimated Serial Fraction (1-P): {serial_fraction*100:.1f}%")
+            print("")
+            
+            # Theoretical maximum speedup
+            if serial_fraction > 0:
+                max_speedup = 1 / serial_fraction
+                print(f"   Theoretical Maximum Speedup (infinite processors): {max_speedup:.2f}x")
+            
+            # Predicted speedups for different worker counts
+            print("")
+            print("   Predicted vs Observed Speedup (Amdahl's Law):")
+            print(f"   {'Workers':<10} {'Predicted':<12} {'Observed':<12} {'Difference':<12}")
+            print("   " + "-"*46)
+            
+            for key, time_val in sorted(mp_times.items()):
+                n = int(key.split('_')[-2])
+                predicted = 1 / ((1 - P) + P/n)
+                observed, _ = calculate_metrics(sequential_time, time_val, n)
+                diff = observed - predicted
+                print(f"   {n:<10} {predicted:<12.2f}x {observed:<12.2f}x {diff:+.2f}x")
+    
+    print("")
+    print("   BOTTLENECKS IDENTIFIED:")
+    print("   • Serial portions: Image loading, result collection, process/thread creation")
+    print("   • multiprocessing overhead: Data serialization (pickling), IPC communication")
+    print("   • ThreadPool advantage: No serialization needed (shared memory)")
+    print("   • OpenCV/NumPy: Release GIL during C-level computation")
+    
+    print("\n" + "-"*80)
+    print("5. SCALABILITY ANALYSIS")
+    print("-"*80)
+    
+    # Analyze scalability
+    if len(mp_times) >= 2:
+        sorted_mp = sorted(mp_times.items(), key=lambda x: int(x[0].split('_')[-2]))
+        workers_list = [int(k.split('_')[-2]) for k, v in sorted_mp]
+        speedups = [calculate_metrics(sequential_time, v, int(k.split('_')[-2]))[0] for k, v in sorted_mp]
+        
+        # Check if speedup increases with workers
+        if len(speedups) >= 2:
+            scaling_factor = speedups[-1] / speedups[0] if speedups[0] > 0 else 0
+            worker_ratio = workers_list[-1] / workers_list[0]
+            scaling_efficiency = (scaling_factor / worker_ratio) * 100
+            
+            print(f"   • Scaling from {workers_list[0]} to {workers_list[-1]} workers:")
+            print(f"     Speedup increased: {speedups[0]:.2f}x → {speedups[-1]:.2f}x")
+            print(f"     Scaling efficiency: {scaling_efficiency:.1f}%")
+            
+            if scaling_efficiency > 80:
+                print("     → EXCELLENT scalability (>80%)")
+            elif scaling_efficiency > 60:
+                print("     → GOOD scalability (60-80%)")
+            elif scaling_efficiency > 40:
+                print("     → MODERATE scalability (40-60%)")
+            else:
+                print("     → LIMITED scalability (<40%) - diminishing returns")
+    
+    print("\n" + "-"*80)
+    print("6. TRADE-OFFS BETWEEN PARADIGMS")
+    print("-"*80)
+    print("   ┌─────────────────────┬────────────────────┬────────────────────┐")
+    print("   │ Aspect              │ multiprocessing    │ ThreadPoolExecutor │")
+    print("   ├─────────────────────┼────────────────────┼────────────────────┤")
+    print("   │ GIL Bypass          │ ✓ Yes              │ ✗ No               │")
+    print("   │ Memory Overhead     │ High (separate)    │ Low (shared)       │")
+    print("   │ Startup Cost        │ High               │ Low                │")
+    print("   │ Data Serialization  │ Required (pickle)  │ Not needed         │")
+    print("   │ Best For            │ CPU-bound tasks    │ I/O-bound tasks    │")
+    print("   │ Communication       │ IPC (slow)         │ Shared memory      │")
+    print("   └─────────────────────┴────────────────────┴────────────────────┘")
+    
     if mp_times and tp_times:
         best_mp_time = min(mp_times.values())
         best_tp_time = min(tp_times.values())
         if best_mp_time < best_tp_time:
             improvement = ((best_tp_time - best_mp_time) / best_tp_time) * 100
-            print(f"\n4. CONCLUSION:")
+            print(f"\n7. CONCLUSION:")
             print(f"   multiprocessing.Pool is {improvement:.1f}% faster than ThreadPoolExecutor")
             print("   → Confirms that process-based parallelism is superior for CPU-bound tasks")
         else:
-            print(f"\n4. CONCLUSION:")
-            print("   Results may vary based on system load and image complexity")
+            winner_diff = ((best_mp_time - best_tp_time) / best_mp_time) * 100
+            print(f"\n7. CONCLUSION:")
+            print(f"   ThreadPoolExecutor is {winner_diff:.1f}% faster than multiprocessing.Pool")
+            print("   → OpenCV/NumPy release GIL, allowing thread parallelism")
+            print("   → Lower overhead (no pickling) benefits smaller workloads")
+            print("   → For larger workloads, multiprocessing may outperform")
     
     print("\n" + "="*80)
 
