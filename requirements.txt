@@ -3,3 +3,4 @@ tqdm
 requests
 opencv-python
 numpy
+psutil

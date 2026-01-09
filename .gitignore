@@ -1,0 +1,8 @@
+output_multiprocessing/
+output_threadpool/
+output_sequential/
+__pycache__/
+*.pyc
+.venv/
+venv/
+food101_subset/

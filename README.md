@@ -2,23 +2,48 @@
 
 ## Overview
 
-This project demonstrates the performance benefits of concurrent processing for CPU-bound image manipulation tasks. It implements an image processing pipeline that applies a series of filters to a dataset of images, comparing sequential execution against parallel processing using Python's `concurrent.futures.ProcessPoolExecutor`.
+This project demonstrates the performance differences between two parallel programming paradigms in Python for CPU-bound image manipulation tasks. It implements an image processing pipeline that applies a series of filters to a dataset of images, comparing:
+
+1. **`multiprocessing.Pool`** - Process-based parallelism (bypasses Python's GIL)
+2. **`concurrent.futures.ThreadPoolExecutor`** - Thread-based parallelism (limited by GIL)
 
 The project is part of a CST435 course assignment focusing on parallel and concurrent programming concepts.
+
+## Key Concepts
+
+### Why Compare These Two Paradigms?
+
+| Aspect | `multiprocessing.Pool` | `ThreadPoolExecutor` |
+|--------|----------------------|---------------------|
+| **Parallelism Type** | Process-based | Thread-based |
+| **Memory Model** | Separate memory spaces | Shared memory |
+| **GIL Impact** | Bypasses GIL | Limited by GIL |
+| **Best For** | CPU-bound tasks | I/O-bound tasks |
+| **Overhead** | Higher (process creation) | Lower (thread creation) |
+
+### Python's Global Interpreter Lock (GIL)
+
+The GIL is a mutex that protects access to Python objects, preventing multiple threads from executing Python bytecode simultaneously. This means:
+
+- **Threads** cannot achieve true parallelism for CPU-bound tasks
+- **Processes** bypass the GIL by having separate Python interpreters
+
+For image processing (CPU-bound), `multiprocessing.Pool` is expected to significantly outperform `ThreadPoolExecutor`.
 
 ## What This Project Does
 
 The pipeline performs the following operations on each image:
 
-1. **Grayscale Conversion** - Converts the image to grayscale using luminance
+1. **Grayscale Conversion** - Converts the image to grayscale using luminance formula
 2. **Gaussian Blur** - Applies a 3x3 Gaussian blur filter for smoothing
 3. **Sobel Edge Detection** - Detects edges using the Sobel operator
 4. **Sharpen Filter** - Enhances edge definition
 5. **Brightness Adjustment** - Increases brightness by 20%
 
-These filters are applied sequentially to each image, and the project compares:
-- **Sequential Processing**: One image at a time
-- **Parallel Processing**: Multiple images processed simultaneously using multiple CPU cores
+The project compares execution across:
+- Sequential processing (baseline)
+- `multiprocessing.Pool` with 2, 4, and more workers
+- `ThreadPoolExecutor` with 2, 4, and more workers
 
 ## Project Structure
 
@@ -26,15 +51,16 @@ These filters are applied sequentially to each image, and the project compares:
 assignment2_435/
 ├── image_pipeline/              # Main Python package
 │   ├── __init__.py
-│   ├── main.py                  # Entry point and orchestration
+│   ├── main.py                  # Entry point - paradigm comparison
 │   ├── filters.py               # Image filter implementations
 │   └── utils.py                 # Utility functions (download, load, save)
 ├── food101_subset/              # Downloaded images (generated)
-├── output_sequential/           # Results from sequential processing
-├── output_concurrent_futures_process/  # Results from parallel processing
+├── output_multiprocessing/      # Results from multiprocessing.Pool
+├── output_threadpool/           # Results from ThreadPoolExecutor
+├── Docs/                        # Documentation
+│   ├── HOW_IT_WORKS.md          # Detailed explanation
+│   └── submission_checklist.md  # Assignment checklist
 ├── requirements.txt             # Python dependencies
-├── technical_report.md          # Detailed technical analysis
-├── submission_checklist.md      # Assignment checklist
 └── README.md                    # This file
 ```
 
@@ -46,6 +72,7 @@ assignment2_435/
 - NumPy
 - tqdm (for progress bars)
 - requests (for downloading images)
+- psutil (for CPU core monitoring)
 
 ## Installation
 
@@ -65,94 +92,143 @@ pip install opencv-python
 
 ### Basic Usage (Default Settings)
 
-Run the pipeline with default settings (uses all available CPU cores):
+Run the pipeline with default settings (tests with 2 and 4 workers):
 
 ```bash
 python -m image_pipeline.main
 ```
 
-### Specify Number of Workers
+### Specify Worker Counts
 
-Control the number of parallel processes:
+Test with specific worker configurations:
 
 ```bash
-python -m image_pipeline.main --workers 4
+python -m image_pipeline.main --workers 2 4 8
+```
+
+### Change Number of Images
+
+Process a different number of images:
+
+```bash
+python -m image_pipeline.main --num-images 50
 ```
 
 ### Command Line Arguments
 
-- `--workers`: Number of worker processes for parallel processing (default: number of CPU cores)
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--workers` | Worker counts to test (space-separated) | `2 4` |
+| `--num-images` | Number of images to process | `100` |
 
 ### What Happens When You Run It
 
-1. **Downloads Images**: Downloads 100 placeholder images to `food101_subset/` (only on first run)
+1. **Downloads Images**: Downloads placeholder images to `food101_subset/` (only on first run)
 2. **Loads Images**: Loads all images into memory
-3. **Sequential Processing**: Processes all images sequentially and saves to `output_sequential/`
-4. **Parallel Processing**: Processes all images in parallel using multiple processes and saves to `output_concurrent_futures_process/`
-5. **Performance Report**: Displays execution times and speedup metrics
+3. **Sequential Processing**: Processes all images sequentially (baseline)
+4. **Multiprocessing**: Processes images using `multiprocessing.Pool`
+5. **ThreadPool**: Processes images using `ThreadPoolExecutor`
+6. **Performance Report**: Displays execution times, speedup, and efficiency metrics
 
 ### Example Output
 
 ```
-Downloading a subset of Food-101 dataset to food101_subset...
-Loading images from food101_subset...
-Loaded 100 images.
+================================================================================
+CST435: PARALLEL AND CLOUD COMPUTING - ASSIGNMENT 2
+Concurrent Image Processing Pipeline
+================================================================================
 
-Running sequentially...
-Sequential processing took 45.23 seconds.
-Saving processed images from the sequential pipeline to output_sequential...
+Comparing two parallel paradigms:
+  1. multiprocessing.Pool      (Process-based, bypasses GIL)
+  2. ThreadPoolExecutor        (Thread-based, limited by GIL)
 
-Running with concurrent.futures.ProcessPoolExecutor using 8 processes...
-Concurrent.futures.ProcessPoolExecutor took 8.67 seconds.
-Saving processed images from the concurrent.futures.ProcessPoolExecutor pipeline...
+Worker counts to test: [2, 4]
+Number of images: 100
+CPU cores available: 4
 
---- Performance Summary ---
-Concurrent Futures Process 8 Workers: 8.67 seconds
-Sequential: 45.23 seconds
+============================================================
+PARADIGM 1: multiprocessing.Pool (4 workers)
+============================================================
+Characteristics:
+  - Process-based parallelism (separate memory spaces)
+  - Bypasses Python's Global Interpreter Lock (GIL)
+  - Each worker is a separate Python interpreter
+  - Best for CPU-bound tasks
 
---- Detailed Performance Analysis ---
-Speedup (ProcessPoolExecutor with 8 workers): 5.22x
-Efficiency: 65.25%
+Image           PID        Core ID    Time (s)    
+--------------------------------------------------
+image_0000.jpg  12345      0          0.0234
+image_0001.jpg  12346      1          0.0198
+image_0002.jpg  12347      2          0.0215
+...
+
+Unique PIDs observed: 4 → Confirms SEPARATE PROCESSES
+CPU Cores utilized: {0, 1, 2, 3} → True parallel execution
+
+================================================================================
+PERFORMANCE COMPARISON TABLE
+================================================================================
+Paradigm                                      Workers    Time (s)     Speedup    Efficiency  
+--------------------------------------------------------------------------------
+Sequential (Baseline)                         1          45.23        1.00x      100.00%
+multiprocessing.Pool                          4          12.34        3.67x      91.75%
+concurrent.futures.ThreadPoolExecutor         4          42.15        1.07x      26.75%
+================================================================================
 ```
 
 ## Technical Details
 
-### Why Parallel Processing Works Here
+### Key Observations from Execution
 
-Image processing is a **CPU-bound task** - each filter operation requires significant computational work. Python's Global Interpreter Lock (GIL) prevents true parallelism with threads, but using **multiprocessing** (via `ProcessPoolExecutor`) creates separate Python processes, each with its own GIL, allowing true parallel execution across multiple CPU cores.
+**Multiprocessing.Pool:**
+- Different PIDs for each worker → Separate processes
+- Can utilize multiple CPU cores simultaneously
+- True parallelism for CPU-bound tasks
 
-### Key Concepts Demonstrated
+**ThreadPoolExecutor:**
+- Same PID for all workers → Single process with multiple threads
+- Limited by GIL for CPU-bound operations
+- Better suited for I/O-bound tasks (file I/O, network requests)
 
-- **Process-based Parallelism**: Using `concurrent.futures.ProcessPoolExecutor` for CPU-bound tasks
-- **Performance Metrics**: Speedup and efficiency calculations
-- **Modular Design**: Separation of concerns (filters, utils, orchestration)
-- **Baseline Comparison**: Sequential processing as a baseline for measuring improvements
+### Performance Metrics
 
-### Filter Implementations
+| Metric | Formula | Description |
+|--------|---------|-------------|
+| **Speedup** | $S = T_{sequential} / T_{parallel}$ | How many times faster than sequential |
+| **Efficiency** | $E = S / N \times 100\%$ | How well workers are utilized (N = worker count) |
+
+### Amdahl's Law
+
+The theoretical maximum speedup is limited by the sequential portion of the code:
+
+$$S_{max} = \frac{1}{(1-P) + \frac{P}{N}}$$
+
+Where:
+- $P$ = Parallelizable fraction
+- $N$ = Number of processors
+
+## Filter Implementations
 
 All filters are implemented using industry-standard libraries:
 - **PIL (Pillow)**: For grayscale, blur, sharpen, and brightness
 - **OpenCV**: For Sobel edge detection
 - **NumPy**: For numerical operations in edge detection
 
-## Performance Analysis
+## Deployment on GCP
 
-The project calculates two key metrics:
+For deployment on Google Cloud Platform (as required by the assignment):
 
-- **Speedup**: `T_sequential / T_parallel` - How much faster parallel processing is
-- **Efficiency**: `Speedup / Number_of_Workers` - How effectively workers are utilized
-
-Typical results show:
-- **Linear speedup** is rare due to overhead (process creation, memory copying, synchronization)
-- **Efficiency decreases** as more workers are added due to diminishing returns
-- **Optimal worker count** is often around the number of physical CPU cores
+1. Create a VM with multiple vCPUs (e.g., `e2-standard-4` with 4 vCPUs)
+2. SSH into the VM
+3. Clone the repository and install dependencies
+4. Run the pipeline to observe true multi-core parallelism
 
 ## Files Included
 
-- [image_pipeline/main.py](image_pipeline/main.py) - Main orchestration logic
+- [image_pipeline/main.py](image_pipeline/main.py) - Main orchestration and paradigm comparison
 - [image_pipeline/filters.py](image_pipeline/filters.py) - Filter implementations
 - [image_pipeline/utils.py](image_pipeline/utils.py) - Helper functions
-- [technical_report.md](technical_report.md) - Comprehensive technical analysis
+- [Docs/HOW_IT_WORKS.md](Docs/HOW_IT_WORKS.md) - Detailed explanation
 - [requirements.txt](requirements.txt) - Python dependencies
 
 ## Troubleshooting
@@ -169,43 +245,33 @@ pip install opencv-python
 pip install Pillow
 ```
 
-**Images not downloading**
-- Check your internet connection
-- The script uses placehold.co for placeholder images
-- If the service is down, the script will report errors but continue
+**"No module named 'psutil'"**
+```bash
+pip install psutil
+```
 
-**Low speedup on Windows**
-- Windows has higher process creation overhead than Linux/macOS
-- Try reducing the number of workers to match physical (not logical) cores
+**Low speedup with multiprocessing**
+- Ensure you have multiple CPU cores available
+- Check with `python -c "import os; print(os.cpu_count())"`
 
 ## Learning Objectives
 
 This project demonstrates:
-1. The difference between sequential and parallel processing
-2. When to use process-based vs. thread-based concurrency
-3. How to measure and analyze parallel performance
-4. Real-world application of concurrent programming concepts
-5. Python's `concurrent.futures` module for parallel processing
-
-## Future Enhancements
-
-Potential improvements:
-- Add support for `multiprocessing.Pool` comparison
-- Implement thread-based processing to show GIL limitations
-- Add more sophisticated filters and filter chains
-- Implement chunking strategies for very large datasets
-- Add memory usage profiling
-- Support for real Food-101 dataset download
+1. The difference between process-based and thread-based parallelism
+2. Impact of Python's GIL on CPU-bound tasks
+3. When to use multiprocessing vs threading
+4. How to measure parallel performance (speedup, efficiency)
+5. Real-world application of concurrent programming concepts
 
 ## License
 
 This is an academic project for CST435.
 
-## Author
+## Authors
 
-Course: CST435 - Parallel and Concurrent Programming
-Assignment: Image Processing Pipeline with Concurrent Processing
+Course: CST435 - Parallel and Cloud Computing  
+Assignment 2: Image Processing Pipeline with Concurrent Processing
 
 ---
 
-For detailed technical analysis, performance benchmarks, and implementation rationale, see [technical_report.md](technical_report.md).
+For detailed technical analysis, see [Docs/HOW_IT_WORKS.md](Docs/HOW_IT_WORKS.md).

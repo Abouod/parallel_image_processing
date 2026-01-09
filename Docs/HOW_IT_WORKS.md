@@ -2,276 +2,260 @@
 
 ## Overview
 
-This project processes images using filters and compares how fast different methods work. Think of it like an assembly line: you can process items one at a time (sequential) or have multiple workers processing different items simultaneously (parallel).
+This project compares **two different parallel programming paradigms** in Python for CPU-bound image processing tasks:
+
+1. **`multiprocessing.Pool`** - Process-based parallelism (bypasses Python's GIL)
+2. **`concurrent.futures.ThreadPoolExecutor`** - Thread-based parallelism (limited by GIL)
+
+Think of it like an assembly line: sequential processing is one worker doing everything, while parallel processing divides work among multiple workers.
 
 ## The Big Picture
 
 ```
-Download Images → Load into Memory → Apply Filters → Save Results → Compare Performance
+Download Images → Load into Memory → Apply Filters → Compare Paradigms → Analyze Performance
+```
+
+## Key Concepts: Processes vs Threads
+
+### What's the Difference?
+
+| Aspect | Processes (`multiprocessing.Pool`) | Threads (`ThreadPoolExecutor`) |
+|--------|-----------------------------------|--------------------------------|
+| **Memory** | Separate memory spaces | Shared memory |
+| **GIL Impact** | Bypasses GIL | Limited by GIL |
+| **Communication** | Via pickling/IPC | Direct memory access |
+| **Overhead** | Higher (separate interpreters) | Lower (shared interpreter) |
+| **Best For** | CPU-bound tasks | I/O-bound tasks |
+
+### Python's Global Interpreter Lock (GIL)
+
+The GIL is a mutex that prevents multiple threads from executing Python bytecode simultaneously:
+
+```
+With Threads (GIL):
+Thread 1: ████████░░░░░░░░ (execute)
+Thread 2: ░░░░░░░░████████ (wait, then execute)
+→ Only ONE thread runs Python code at a time!
+
+With Processes (No GIL constraint):
+Process 1: ████████████████ (execute)
+Process 2: ████████████████ (execute simultaneously)
+→ TRUE parallel execution!
 ```
 
 ## Project Structure Explained
 
-### 1. Main Components
+### Main Components
 
-**[image_pipeline/main.py](image_pipeline/main.py)** - The Orchestra Conductor
-- Downloads or checks for images
-- Loads all images into memory
-- Runs both sequential and parallel processing
-- Compares and reports performance
+**[image_pipeline/main.py](../image_pipeline/main.py)** - The Orchestra Conductor
+- Compares both parallel paradigms
+- Tracks execution metadata (PID, CPU core, timing)
+- Generates performance comparison tables
+- Calculates speedup and efficiency metrics
 
-**[image_pipeline/filters.py](image_pipeline/filters.py)** - The Image Transformers
+**[image_pipeline/filters.py](../image_pipeline/filters.py)** - The Image Transformers
 - Contains 5 different filters that modify images
 - Each filter does one specific transformation
 
-**[image_pipeline/utils.py](image_pipeline/utils.py)** - The Helper Functions
+**[image_pipeline/utils.py](../image_pipeline/utils.py)** - The Helper Functions
 - Downloads images from the internet
 - Loads images from folders
 - Saves processed images to disk
 
-## How the Code Flows
+## The Two Parallel Paradigms
 
-### Step 1: Setup and Download (main.py lines 48-51)
+### Paradigm 1: multiprocessing.Pool (Process-based)
 
 ```python
-download_food101_subset(DATASET_PATH, NUM_IMAGES)
+from multiprocessing import Pool
+
+def run_multiprocessing_pool(images_data, num_workers):
+    with Pool(processes=num_workers) as pool:
+        results = pool.map(process_image, images_data)
+    return results
 ```
 
 **What happens:**
-- Checks if `food101_subset/` folder exists
-- If not, downloads 100 placeholder images from placehold.co
-- Each image has random dimensions (400-800px wide, 300-600px tall)
-- Saves them as `image_0000.jpg`, `image_0001.jpg`, etc.
+1. Creates `num_workers` separate Python processes
+2. Each process has its own Python interpreter and memory space
+3. Images are pickled (serialized) and sent to worker processes
+4. Workers process images truly in parallel (bypass GIL)
+5. Results are pickled and returned to main process
 
-**Why:** We need a dataset to process. Using placeholders avoids downloading the huge Food-101 dataset (25GB+).
+**Observable characteristics:**
+- **Different PIDs** for each worker (separate processes)
+- **Different CPU cores** utilized simultaneously
+- **True parallelism** for CPU-bound tasks
 
-### Step 2: Load Images (main.py lines 54-55)
+### Paradigm 2: concurrent.futures.ThreadPoolExecutor (Thread-based)
 
 ```python
-images_data = load_images(DATASET_PATH)
+from concurrent.futures import ThreadPoolExecutor
+
+def run_threadpool_executor(images_data, num_workers):
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        results = list(executor.map(process_image, images_data))
+    return results
 ```
 
 **What happens:**
-- Scans the `food101_subset/` folder
-- Opens each image file using PIL (Python Imaging Library)
-- Creates a list of tuples: `(image_object, filename)`
-- All images are now in RAM, ready to process
+1. Creates `num_workers` threads within the same process
+2. All threads share the same Python interpreter and memory
+3. GIL allows only one thread to execute Python bytecode at a time
+4. Threads take turns executing (context switching)
 
-**Why:** Loading all images once is faster than opening/closing files repeatedly.
+**Observable characteristics:**
+- **Same PID** for all workers (single process)
+- **May use different CPU cores** but GIL limits actual parallelism
+- **Limited speedup** for CPU-bound tasks due to GIL
 
-### Step 3: The Filter Pipeline (filters.py)
+## Execution Tracking (Like Lab 2)
+
+Similar to Lab 2's concurrency comparison, we track:
+
+```python
+def get_cpu_core_id():
+    """Get the current CPU core ID."""
+    if HAS_PSUTIL:
+        p = psutil.Process()
+        return p.cpu_num()
+    return "N/A"
+
+def get_process_info():
+    """Get PID and Thread ID."""
+    pid = os.getpid()
+    tid = threading.get_ident()
+    return pid, tid
+```
+
+This allows us to observe:
+- **PID allocation**: Same vs different PIDs
+- **CPU core utilization**: Which cores are being used
+- **Thread identification**: Multiple threads in same process
+
+## The Filter Pipeline (filters.py)
 
 Each image goes through 5 filters in order:
 
-#### Filter 1: Grayscale (line 6)
+### Filter 1: Grayscale Conversion
 ```python
 ImageOps.grayscale(image)
 ```
 - Converts color image to black and white
-- Reduces 3 color channels (RGB) to 1 (luminance)
-- Example: Red apple → Gray apple
+- Uses luminance formula: $Y = 0.299R + 0.587G + 0.114B$
+- Reduces 3 channels (RGB) to 1 channel
 
-#### Filter 2: Gaussian Blur (line 10)
+### Filter 2: Gaussian Blur (3×3 kernel)
 ```python
 image.filter(ImageFilter.GaussianBlur(radius=1))
 ```
 - Smooths the image by averaging nearby pixels
+- Uses a 3×3 Gaussian kernel for smoothing
 - Reduces noise and sharp details
-- Like looking at something slightly out of focus
 
-#### Filter 3: Sobel Edge Detection (line 14)
+### Filter 3: Sobel Edge Detection
 ```python
-cv2.Sobel(opencv_image, cv2.CV_64F, 1, 0, ksize=3)
+sobelx = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
+sobely = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
+magnitude = np.sqrt(sobelx**2 + sobely**2)
 ```
 - Finds edges where brightness changes rapidly
-- Detects both horizontal and vertical edges
-- Highlights outlines and boundaries
-- Uses OpenCV for mathematical operations
+- Computes horizontal and vertical gradients
+- Combines into edge magnitude
 
-#### Filter 4: Sharpen (line 29)
+### Filter 4: Sharpen
 ```python
 image.filter(ImageFilter.SHARPEN)
 ```
 - Enhances edges and fine details
 - Makes edges more pronounced
-- Opposite of blur
 
-#### Filter 5: Brightness Adjustment (line 33)
+### Filter 5: Brightness Adjustment
 ```python
 ImageEnhance.Brightness(image).enhance(1.2)
 ```
 - Increases brightness by 20% (factor = 1.2)
-- Makes the image lighter
-- Values > 1.0 brighten, < 1.0 darken
 
-**Why this order?**
-1. Grayscale simplifies processing (1 channel vs 3)
-2. Blur reduces noise before edge detection
-3. Edge detection finds important features
-4. Sharpen enhances those features
-5. Brightness makes final result more visible
+## Performance Metrics
 
-### Step 4: Sequential Processing (main.py lines 22-29)
+### Speedup
 
-```python
-def run_sequential(images_data):
-    results = []
-    for image_data in images_data:
-        results.append(process_image_wrapper(image_data))
-    return results
-```
+$$S = \frac{T_{sequential}}{T_{parallel}}$$
 
-**What happens:**
-1. Start timer
-2. Process image 1 → wait until done
-3. Process image 2 → wait until done
-4. Process image 3 → wait until done
-5. ... continue for all 100 images
-6. Stop timer
+- Measures how many times faster parallel is than sequential
+- Example: 45s sequential ÷ 15s parallel = 3x speedup
 
-**Why it's slow:**
-- Only uses 1 CPU core
-- CPU sits idle while waiting for each image
-- Like having 1 chef cooking 100 meals one at a time
+### Efficiency
 
-### Step 5: Parallel Processing (main.py lines 32-39)
+$$E = \frac{S}{N} \times 100\%$$
 
-```python
-def run_concurrent_futures_process_pool(images_data, num_workers):
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        results = list(executor.map(process_image_wrapper, images_data))
-    return results
-```
+Where:
+- $S$ = Speedup
+- $N$ = Number of workers
 
-**What happens:**
-1. Start timer
-2. Create 4 (or 8) separate Python processes
-3. Distribute 100 images across these processes
-4. Each process works on different images simultaneously
-5. Collect results when all are done
-6. Stop timer
+- Measures how well each worker is utilized
+- Perfect efficiency = 100% (each worker provides full speedup)
+- Reality: 50-80% due to overhead
 
-**Why it's fast:**
-- Uses multiple CPU cores (4-8 cores)
-- All cores work at the same time
-- Like having 4 chefs cooking 25 meals each simultaneously
+### Amdahl's Law
 
-### Step 6: Performance Comparison (main.py lines 98-105)
+$$S_{max} = \frac{1}{(1-P) + \frac{P}{N}}$$
 
-```python
-speedup = all_times['sequential'] / all_times[process_pool_key]
-efficiency = speedup / num_workers
-```
+Where:
+- $P$ = Parallelizable fraction of the code
+- $N$ = Number of processors
 
-**Key Metrics:**
+This defines the theoretical maximum speedup for any parallel program.
 
-**Speedup** = How many times faster parallel is than sequential
-- Formula: `Sequential Time ÷ Parallel Time`
-- Example: 45 seconds ÷ 9 seconds = 5x speedup
-- Higher is better
+## Expected Results
 
-**Efficiency** = How well we use each worker
-- Formula: `Speedup ÷ Number of Workers`
-- Example: 5x speedup ÷ 8 workers = 0.625 (62.5% efficiency)
-- Perfect efficiency = 1.0 (each worker provides 1x speedup)
-- Reality: Usually 0.5-0.8 due to overhead
+### Multiprocessing.Pool
+- **High speedup** for CPU-bound image processing
+- **Good efficiency** (60-80%) with moderate worker counts
+- **Different PIDs** confirm separate processes
+- **Multiple CPU cores** utilized simultaneously
 
-## Why Parallel Processing Works Here
+### ThreadPoolExecutor
+- **Low speedup** for CPU-bound tasks (limited by GIL)
+- **Poor efficiency** for CPU-bound workloads
+- **Same PID** confirms single process with multiple threads
+- **GIL prevents true parallelism**
 
-### The Python GIL Problem
+### Sample Performance Table
 
-Python has a Global Interpreter Lock (GIL) that prevents multiple threads from running Python code simultaneously. This makes threading useless for CPU-heavy tasks.
-
-**Solution:** Use separate processes instead of threads.
-- Each process has its own Python interpreter
-- Each process has its own GIL
-- Processes truly run in parallel on different CPU cores
-
-### CPU-Bound vs I/O-Bound
-
-**CPU-Bound** (this project):
-- Task limited by processor speed
-- Example: Math calculations, image filtering
-- Solution: Use multiprocessing
-
-**I/O-Bound** (not this project):
-- Task limited by input/output operations
-- Example: Reading files, network requests
-- Solution: Use threading or asyncio
-
-Image filtering involves lots of mathematical operations (convolutions, matrix multiplications) making it CPU-bound.
-
-## Understanding the Process Flow
-
-### Process Creation
-```
-Main Process
-    ├─> Worker Process 1 (handles images 0-24)
-    ├─> Worker Process 2 (handles images 25-49)
-    ├─> Worker Process 3 (handles images 50-74)
-    └─> Worker Process 4 (handles images 75-99)
-```
-
-### Data Flow
-1. **Main process** loads all images into memory
-2. **ProcessPoolExecutor** pickles (serializes) image data
-3. **Worker processes** receive pickled data
-4. **Workers** process images independently
-5. **Workers** pickle results
-6. **Main process** collects and unpickles results
-7. **Main process** saves images to disk
-
-## Performance Factors
-
-### What Makes It Faster
-✅ **Multiple CPU cores** - More workers = more parallel work
-✅ **CPU-bound tasks** - Image processing is pure computation
-✅ **Many images** - Overhead is amortized over 100 images
-✅ **Independent tasks** - Each image processed separately
-
-### What Slows It Down
-❌ **Process creation overhead** - Starting processes takes time
-❌ **Data serialization** - Pickling/unpickling images adds overhead
-❌ **Memory copying** - Each process gets its own copy of data
-❌ **Limited cores** - 8 workers on 8 cores is the sweet spot
-
-### Typical Results
-- **8 CPU cores, 100 images:**
-  - Sequential: ~45 seconds
-  - Parallel (8 workers): ~9 seconds
-  - Speedup: ~5x (not 8x due to overhead)
-  - Efficiency: ~62.5%
-
-## Common Questions
-
-**Q: Why not 8x speedup with 8 cores?**
-A: Overhead from process creation, data copying, and synchronization reduces efficiency.
-
-**Q: Why use ProcessPoolExecutor instead of multiprocessing.Pool?**
-A: ProcessPoolExecutor has a cleaner API and is easier to use. Performance is similar.
-
-**Q: Can I use more workers than CPU cores?**
-A: Yes, but you won't see improvement. Context switching overhead will hurt performance.
-
-**Q: Why pickle (serialize) images?**
-A: Processes have separate memory spaces. Data must be serialized to transfer between them.
-
-**Q: What if I only have 1 image?**
-A: Parallel processing would be slower due to overhead. Use sequential for small workloads.
+| Paradigm | Workers | Time (s) | Speedup | Efficiency |
+|----------|---------|----------|---------|------------|
+| Sequential | 1 | 45.00 | 1.00x | 100% |
+| multiprocessing.Pool | 4 | 12.00 | 3.75x | 93.75% |
+| ThreadPoolExecutor | 4 | 42.00 | 1.07x | 26.75% |
 
 ## Key Takeaways
 
-1. **Parallel processing is great for CPU-bound tasks** with many independent units of work
-2. **Use processes (not threads)** for CPU-bound Python tasks
-3. **Speedup is rarely linear** due to overhead
-4. **More workers isn't always better** - match to your CPU core count
-5. **Measure performance** - always compare against a sequential baseline
+1. **multiprocessing.Pool** is superior for CPU-bound tasks because it bypasses the GIL
+2. **ThreadPoolExecutor** is better suited for I/O-bound tasks (file I/O, network)
+3. **PID observation** confirms whether processes or threads are used
+4. **CPU core tracking** shows actual hardware utilization
+5. **Speedup is rarely linear** due to overhead (process creation, serialization)
+
+## Running the Pipeline
+
+```bash
+# Default: Test with 2 and 4 workers
+python -m image_pipeline.main
+
+# Specify worker counts
+python -m image_pipeline.main --workers 2 4 8
+
+# Process fewer images for quick testing
+python -m image_pipeline.main --num-images 50
+```
 
 ## Code Entry Point
 
-Run from project root:
-```bash
-python -m image_pipeline.main --workers 4
-```
-
-This executes `main()` in [main.py](image_pipeline/main.py#L42), which orchestrates the entire pipeline.
+The main function in [main.py](../image_pipeline/main.py) orchestrates:
+1. Dataset download/loading
+2. Sequential baseline execution
+3. Multiprocessing.Pool execution with various worker counts
+4. ThreadPoolExecutor execution with various worker counts
+5. Performance comparison table generation
+6. Analysis and conclusions
