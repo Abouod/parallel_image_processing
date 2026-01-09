@@ -45,19 +45,37 @@ Process 2: ████████████████ (execute simultaneou
 
 ## Project Structure Explained
 
-### Main Components
+### Main Components (Modular Architecture)
 
-**[image_pipeline/main.py](../image_pipeline/main.py)** - The Orchestra Conductor
-- Compares both parallel paradigms
-- Tracks execution metadata (PID, CPU core, timing)
-- Generates performance comparison tables
+**[image_pipeline/main.py](../image_pipeline/main.py)** - Entry Point & Orchestration
+- Coordinates the entire pipeline execution
+- Handles command-line arguments
+- Calls processing, analysis, and visualization modules
+
+**[image_pipeline/processing.py](../image_pipeline/processing.py)** - Parallel Processing
+- Implements `multiprocessing.Pool` execution
+- Implements `ThreadPoolExecutor` execution
+- Tracks PID, Thread ID, and CPU core for each task
+- Optimized chunksize calculation for load balancing
+
+**[image_pipeline/analysis.py](../image_pipeline/analysis.py)** - Performance Analysis
 - Calculates speedup and efficiency metrics
+- Implements Amdahl's Law analysis with parallel fraction estimation
+- Provides scalability analysis (scaling efficiency)
+- Generates trade-offs comparison table
 
-**[image_pipeline/filters.py](../image_pipeline/filters.py)** - The Image Transformers
+**[image_pipeline/visualization.py](../image_pipeline/visualization.py)** - Graph Generation
+- Creates execution time bar charts
+- Creates speedup line graphs
+- Creates efficiency line graphs
+- Generates combined summary plot
+- Uses matplotlib with Agg backend (headless server compatible)
+
+**[image_pipeline/filters.py](../image_pipeline/filters.py)** - Image Transformers
 - Contains 5 different filters that modify images
-- Each filter does one specific transformation
+- Each filter has detailed docstrings explaining the algorithm
 
-**[image_pipeline/utils.py](../image_pipeline/utils.py)** - The Helper Functions
+**[image_pipeline/utils.py](../image_pipeline/utils.py)** - Helper Functions
 - Downloads images from the internet
 - Loads images from folders
 - Saves processed images to disk
@@ -253,9 +271,24 @@ python -m image_pipeline.main --num-images 50
 ## Code Entry Point
 
 The main function in [main.py](../image_pipeline/main.py) orchestrates:
-1. Dataset download/loading
-2. Sequential baseline execution
+1. Dataset download/loading ([utils.py](../image_pipeline/utils.py))
+2. Sequential baseline execution ([processing.py](../image_pipeline/processing.py))
 3. Multiprocessing.Pool execution with various worker counts
 4. ThreadPoolExecutor execution with various worker counts
-5. Performance comparison table generation
-6. Analysis and conclusions
+5. Performance comparison table generation ([analysis.py](../image_pipeline/analysis.py))
+6. Amdahl's Law and scalability analysis
+7. Performance graph generation ([visualization.py](../image_pipeline/visualization.py))
+
+## Output Files
+
+After running the pipeline, the following outputs are generated:
+
+```
+output_multiprocessing/     # Processed images from multiprocessing.Pool
+output_threadpool/          # Processed images from ThreadPoolExecutor
+performance_graphs/
+├── execution_time_comparison.png   # Bar chart comparing execution times
+├── speedup_comparison.png          # Line graph showing speedup vs workers
+├── efficiency_comparison.png       # Line graph showing efficiency vs workers
+└── performance_summary.png         # Combined 2x2 summary plot
+```

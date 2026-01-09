@@ -51,15 +51,22 @@ The project compares execution across:
 assignment2_435/
 ├── image_pipeline/              # Main Python package
 │   ├── __init__.py
-│   ├── main.py                  # Entry point - paradigm comparison
+│   ├── main.py                  # Entry point and orchestration
+│   ├── processing.py            # Parallel processing implementations
+│   ├── analysis.py              # Performance metrics & Amdahl's Law
+│   ├── visualization.py         # Graph generation (matplotlib)
 │   ├── filters.py               # Image filter implementations
 │   └── utils.py                 # Utility functions (download, load, save)
 ├── food101_subset/              # Downloaded images (generated)
 ├── output_multiprocessing/      # Results from multiprocessing.Pool
 ├── output_threadpool/           # Results from ThreadPoolExecutor
+├── performance_graphs/          # Generated performance charts
+│   ├── execution_time_comparison.png
+│   ├── speedup_comparison.png
+│   ├── efficiency_comparison.png
+│   └── performance_summary.png
 ├── Docs/                        # Documentation
-│   ├── HOW_IT_WORKS.md          # Detailed explanation
-│   └── submission_checklist.md  # Assignment checklist
+│   └── HOW_IT_WORKS.md          # Detailed technical explanation
 ├── requirements.txt             # Python dependencies
 └── README.md                    # This file
 ```
@@ -70,6 +77,7 @@ assignment2_435/
 - Pillow (PIL)
 - OpenCV (cv2)
 - NumPy
+- matplotlib (for performance graphs)
 - tqdm (for progress bars)
 - requests (for downloading images)
 - psutil (for CPU core monitoring)
@@ -225,11 +233,16 @@ For deployment on Google Cloud Platform (as required by the assignment):
 
 ## Files Included
 
-- [image_pipeline/main.py](image_pipeline/main.py) - Main orchestration and paradigm comparison
-- [image_pipeline/filters.py](image_pipeline/filters.py) - Filter implementations
-- [image_pipeline/utils.py](image_pipeline/utils.py) - Helper functions
-- [Docs/HOW_IT_WORKS.md](Docs/HOW_IT_WORKS.md) - Detailed explanation
-- [requirements.txt](requirements.txt) - Python dependencies
+| File | Description |
+|------|-------------|
+| [image_pipeline/main.py](image_pipeline/main.py) | Entry point and orchestration |
+| [image_pipeline/processing.py](image_pipeline/processing.py) | Parallel processing (Pool & ThreadPool) |
+| [image_pipeline/analysis.py](image_pipeline/analysis.py) | Performance metrics & Amdahl's Law |
+| [image_pipeline/visualization.py](image_pipeline/visualization.py) | Graph generation (bar charts, line graphs) |
+| [image_pipeline/filters.py](image_pipeline/filters.py) | 5 image filter implementations |
+| [image_pipeline/utils.py](image_pipeline/utils.py) | Dataset download, load, save helpers |
+| [Docs/HOW_IT_WORKS.md](Docs/HOW_IT_WORKS.md) | Detailed technical explanation |
+| [requirements.txt](requirements.txt) | Python dependencies |
 
 ## Troubleshooting
 
