@@ -151,6 +151,12 @@ def run_multiprocessing_pool(images_data, num_workers, verbose=True):
     """
     Paradigm 1: multiprocessing.Pool (Process-based parallelism)
     
+    Synchronization & Load Balancing:
+    - Pool context manager handles process lifecycle (creation/cleanup)
+    - Using optimized chunksize for better load distribution
+    - Each process has its own memory space (no shared state = no locks needed)
+    
+    Characteristics:
     - Creates separate Python interpreter processes
     - Each process has its own memory space
     - Bypasses Python's GIL for true parallelism
@@ -169,8 +175,15 @@ def run_multiprocessing_pool(images_data, num_workers, verbose=True):
     
     start_time = time.time()
     
+    # Optimized chunksize for better load balancing
+    # Smaller chunks = better distribution when task times vary
+    # Formula: chunksize = max(1, len(data) // (num_workers * 4))
+    chunksize = max(1, len(images_data) // (num_workers * 4))
+    
     with Pool(processes=num_workers) as pool:
-        results = pool.map(process_image_for_multiprocessing, images_data)
+        # pool.map with optimized chunksize distributes work evenly
+        # Context manager ensures proper cleanup of worker processes
+        results = pool.map(process_image_for_multiprocessing, images_data, chunksize=chunksize)
     
     end_time = time.time()
     total_time = end_time - start_time
@@ -204,6 +217,13 @@ def run_threadpool_executor(images_data, num_workers, verbose=True):
     """
     Paradigm 2: concurrent.futures.ThreadPoolExecutor (Thread-based parallelism)
     
+    Synchronization & Load Balancing:
+    - ThreadPoolExecutor context manager handles thread lifecycle
+    - executor.map() automatically distributes work across threads
+    - Shared memory space - but our tasks are independent (no shared state)
+    - GIL provides implicit synchronization for Python objects
+    
+    Characteristics:
     - Uses threads within a single process
     - Shared memory space between threads
     - Limited by Python's GIL for CPU-bound tasks
