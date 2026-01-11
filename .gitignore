@@ -2,7 +2,7 @@ output_multiprocessing/
 output_threadpool/
 output_sequential/
 performance_graphs/
-food101_subset/
+# food101_subset/
 __pycache__/
 *.pyc
 .venv/
