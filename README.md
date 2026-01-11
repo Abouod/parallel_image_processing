@@ -132,8 +132,8 @@ python -m image_pipeline.main --num-images 50
 ### What Happens When You Run It
 
 1. **Prepares Dataset**: If `food101_subset/` doesn't exist, downloads placeholder images (for testing). You can replace these with real Food-101 images.
-2. **Loads Images**: Loads all images from `food101_subset/` into memory
-3. **Sequential Processing**: Processes all images sequentially (baseline)
+2. **Loads Images**: Loads up to `--num-images` images (default: 100) from `food101_subset/` into memory
+3. **Sequential Processing**: Processes all loaded images sequentially (baseline)
 4. **Multiprocessing**: Processes images using `multiprocessing.Pool`
 5. **ThreadPool**: Processes images using `ThreadPoolExecutor`
 6. **Performance Report**: Displays execution times, speedup, and efficiency metrics
@@ -148,12 +148,19 @@ For the assignment, you should use images from the **Food-101 dataset**:
    ```bash
    mkdir -p food101_subset
    ```
-3. Copy 100 images (or your desired amount) into `food101_subset/`:
+3. Copy images into `food101_subset/`:
    ```bash
-   # Example: Copy 100 images from a Food-101 category
+   # Example: Copy images from a Food-101 category
    cp /path/to/food-101/images/pizza/*.jpg food101_subset/
    ```
-4. Run the pipeline - it will use your images instead of downloading placeholders
+4. Run the pipeline with your desired image count:
+   ```bash
+   # Process 100 images (default)
+   python -m image_pipeline.main
+   
+   # Process all 500 images
+   python -m image_pipeline.main --num-images 500
+   ```
 
 ### Example Output
 

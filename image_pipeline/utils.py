@@ -48,22 +48,33 @@ def download_food101_subset(path, num_images=100):
         except Exception as e:
             print(f"Could not download or save image from {url}: {e}")
 
-def load_images(path):
-    """Loads images from a specified directory."""
+def load_images(path, num_images=None):
+    """Loads images from a specified directory.
+    
+    Args:
+        path: Directory path containing images
+        num_images: Maximum number of images to load (None = load all)
+    """
     images_data = []
     if not os.path.exists(path):
         print(f"Dataset path {path} does not exist.")
         return images_data
 
-    for filename in os.listdir(path):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
-            filepath = os.path.join(path, filename)
-            try:
-                img = Image.open(filepath)
-                img.load() # Load image data into memory
-                images_data.append((img, filename))
-            except Exception as e:
-                print(f"Could not load image {filepath}: {e}")
+    filenames = sorted([f for f in os.listdir(path) 
+                       if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))])
+    
+    # Limit to num_images if specified
+    if num_images is not None:
+        filenames = filenames[:num_images]
+    
+    for filename in filenames:
+        filepath = os.path.join(path, filename)
+        try:
+            img = Image.open(filepath)
+            img.load()  # Load image data into memory
+            images_data.append((img, filename))
+        except Exception as e:
+            print(f"Could not load image {filepath}: {e}")
     return images_data
 
 def save_image(image, filepath):

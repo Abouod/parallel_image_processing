@@ -130,7 +130,7 @@ Examples:
     print(f"\n{'='*60}")
     print("STEP 2: Loading Images")
     print("="*60)
-    images_data = load_images(DATASET_PATH)
+    images_data = load_images(DATASET_PATH, args.num_images)
     print(f"Loaded {len(images_data)} images into memory")
 
     if not images_data:
