@@ -131,12 +131,29 @@ python -m image_pipeline.main --num-images 50
 
 ### What Happens When You Run It
 
-1. **Downloads Images**: Downloads placeholder images to `food101_subset/` (only on first run)
-2. **Loads Images**: Loads all images into memory
+1. **Prepares Dataset**: If `food101_subset/` doesn't exist, downloads placeholder images (for testing). You can replace these with real Food-101 images.
+2. **Loads Images**: Loads all images from `food101_subset/` into memory
 3. **Sequential Processing**: Processes all images sequentially (baseline)
 4. **Multiprocessing**: Processes images using `multiprocessing.Pool`
 5. **ThreadPool**: Processes images using `ThreadPoolExecutor`
 6. **Performance Report**: Displays execution times, speedup, and efficiency metrics
+7. **Generates Graphs**: Creates performance charts in `performance_graphs/`
+
+### Using Your Own Images (Recommended)
+
+For the assignment, you should use images from the **Food-101 dataset**:
+
+1. Download Food-101 from [Kaggle](https://www.kaggle.com/datasets/dansbecker/food-101)
+2. Create the `food101_subset/` folder manually:
+   ```bash
+   mkdir -p food101_subset
+   ```
+3. Copy 100 images (or your desired amount) into `food101_subset/`:
+   ```bash
+   # Example: Copy 100 images from a Food-101 category
+   cp /path/to/food-101/images/pizza/*.jpg food101_subset/
+   ```
+4. Run the pipeline - it will use your images instead of downloading placeholders
 
 ### Example Output
 
